@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title">単一生成</h5>
+            </div>
+            <div class="card-body">
+                <form id="singleGenerationForm">
+                    <div class="mb-3">
+                        <label for="prompt" class="form-label">プロンプト</label>
+                        <textarea class="form-control" id="prompt" name="prompt" rows="3" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="generateBtn">
+                        <i class="fa fa-film"></i> 生成開始
+                    </button>
+                </form>
+                <div id="singleResult" class="mt-3">
+                    <div class="progress d-none">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+                    </div>
+                    <div id="singleVideoContainer" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title">バッチ生成</h5>
+            </div>
+            <div class="card-body">
+                <form id="batchGenerationForm">
+                    <div class="mb-3">
+                        <label for="csvFile" class="form-label">CSVファイル（1列目にプロンプトを記載）</label>
+                        <input type="file" class="form-control" id="csvFile" name="file" accept=".csv" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="batchGenerateBtn">
+                        <i class="fa fa-tasks"></i> バッチ処理開始
+                    </button>
+                </form>
+                <div id="batchResult" class="mt-3">
+                    <div class="progress d-none">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+                    </div>
+                    <div id="batchResultList" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
