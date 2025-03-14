@@ -6,6 +6,7 @@ import requests
 import csv
 import io
 import time
+import json
 
 # ロギングの設定
 logging.basicConfig(level=logging.DEBUG)
@@ -24,20 +25,37 @@ def generate_video(prompt):
         "Authorization": f"Key {FAL_API_KEY}",
         "Content-Type": "application/json"
     }
-    
+
     data = {
         "prompt": prompt,
         "negative_prompt": "blurry, low quality",
         "num_frames": 24
     }
-    
+
     try:
         response = requests.post(FAL_API_URL, headers=headers, json=data)
         response.raise_for_status()
-        return response.json()
+        logger.debug(f"API Response: {response.text}")  # レスポンスの内容をログに出力
+
+        # レスポンスがJSONでない場合はエラーを発生させる
+        if not response.text:
+            raise ValueError("Empty response from API")
+
+        response_data = response.json()
+        if 'result' not in response_data:
+            raise ValueError(f"Unexpected API response format: {response_data}")
+
+        # APIのレスポンス形式に合わせて処理
+        return {
+            'video_url': response_data['result'].get('url'),
+            'task_id': response_data.get('task_id')
+        }
     except requests.exceptions.RequestException as e:
         logger.error(f"API request failed: {str(e)}")
         raise
+    except (json.JSONDecodeError, ValueError) as e:
+        logger.error(f"Failed to parse API response: {str(e)}")
+        raise ValueError(f"Invalid API response: {str(e)}")
 
 @app.route('/')
 def index():
@@ -48,25 +66,28 @@ def generate():
     prompt = request.form.get('prompt')
     if not prompt:
         return jsonify({'error': 'プロンプトを入力してください'}), 400
-    
+
     try:
         result = generate_video(prompt)
         return jsonify(result)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Generation failed: {str(e)}")
+        return jsonify({'error': 'サーバーエラーが発生しました'}), 500
 
 @app.route('/batch', methods=['POST'])
 def batch_generate():
     if 'file' not in request.files:
         return jsonify({'error': 'ファイルがアップロードされていません'}), 400
-    
+
     file = request.files['file']
     if file.filename == '':
         return jsonify({'error': 'ファイルが選択されていません'}), 400
-    
+
     if not file.filename.endswith('.csv'):
         return jsonify({'error': 'CSVファイルのみ対応しています'}), 400
-    
+
     results = []
     try:
         stream = io.StringIO(file.stream.read().decode("UTF8"))
@@ -84,14 +105,16 @@ def batch_generate():
                 })
                 time.sleep(1)  # API制限を考慮して遅延を入れる
             except Exception as e:
+                logger.error(f"Failed to generate video for prompt '{prompt}': {str(e)}")
                 results.append({
                     'prompt': prompt,
                     'error': str(e),
                     'status': 'error'
                 })
-        
+
         return jsonify({'results': results})
     except Exception as e:
+        logger.error(f"Batch processing failed: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':

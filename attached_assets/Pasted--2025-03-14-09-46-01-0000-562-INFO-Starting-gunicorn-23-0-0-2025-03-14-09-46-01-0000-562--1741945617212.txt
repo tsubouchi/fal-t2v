@@ -1,0 +1,30 @@
+[2025-03-14 09:46:01 +0000] [562] [INFO] Starting gunicorn 23.0.0
+[2025-03-14 09:46:01 +0000] [562] [INFO] Listening at: http://0.0.0.0:5000 (562)
+[2025-03-14 09:46:01 +0000] [562] [INFO] Using worker: sync
+[2025-03-14 09:46:01 +0000] [573] [INFO] Booting worker with pid: 573
+[2025-03-14 09:46:01 +0000] [562] [INFO] Handling signal: winch
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): fal.ai:443
+DEBUG:urllib3.connectionpool:https://fal.ai:443 "POST /models/fal-ai/wan/v2.1/1.3b/text-to-video/api HTTP/1.1" 200 None
+ERROR:app:API request failed: Expecting value: line 1 column 1 (char 0)
+[2025-03-14 09:46:47 +0000] [562] [INFO] Handling signal: winch
+[2025-03-14 09:46:47 +0000] [562] [INFO] Handling signal: winch
+[2025-03-14 09:46:47 +0000] [562] [INFO] Handling signal: winch
+[2025-03-14 09:46:47 +0000] [562] [INFO] Handling signal: winch
+[2025-03-14 09:46:47 +0000] [562] [INFO] Handling signal: winch
+[2025-03-14 09:46:47 +0000] [562] [INFO] Handling signal: winch
+[2025-03-14 09:46:47 +0000] [562] [INFO] Handling signal: winch
+[2025-03-14 09:46:47 +0000] [562] [INFO] Handling signal: winch
+[2025-03-14 09:46:47 +0000] [562] [INFO] Handling signal: winch
+[2025-03-14 09:46:47 +0000] [562] [INFO] Handling signal: winch
+[2025-03-14 09:46:47 +0000] [562] [INFO] Handling signal: winch
+[2025-03-14 09:46:47 +0000] [562] [INFO] Handling signal: winch
+[2025-03-14 09:46:47 +0000] [562] [INFO] Handling signal: winch
+[2025-03-14 09:46:47 +0000] [562] [INFO] Handling signal: winch
+[2025-03-14 09:46:47 +0000] [562] [INFO] Handling signal: winch
+[2025-03-14 09:46:47 +0000] [562] [INFO] Handling signal: winch
+[2025-03-14 09:46:47 +0000] [562] [INFO] Handling signal: winch
+[2025-03-14 09:46:47 +0000] [562] [INFO] Handling signal: winch
+[2025-03-14 09:46:47 +0000] [562] [INFO] Handling signal: winch
+[2025-03-14 09:46:47 +0000] [562] [INFO] Handling signal: winch
+[2025-03-14 09:46:47 +0000] [562] [INFO] Handling signal: winch
+[2025-03-14 09:46:48 +0000] [562] [INFO] Handling signal: winch
