@@ -16,7 +16,6 @@ document.addEventListener('DOMContentLoaded', function() {
             singleProgress.classList.remove('d-none');
             videoContainer.innerHTML = '';
 
-            // 進捗表示用の要素を作成
             const progressDiv = document.createElement('div');
             progressDiv.className = 'alert alert-info mt-2';
             progressDiv.textContent = '動画を生成中...';
@@ -30,11 +29,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify({ prompt })
             });
 
-            if (!response.ok) {
-                throw new Error('動画生成中にエラーが発生しました');
-            }
-
             const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || '動画生成中にエラーが発生しました');
+            }
 
             // 動画の表示
             const video = document.createElement('video');
@@ -75,11 +74,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: formData
             });
 
-            if (!response.ok) {
-                throw new Error('バッチ処理中にエラーが発生しました');
-            }
-
             const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'バッチ処理中にエラーが発生しました');
+            }
 
             // 結果の表示
             data.results.forEach((result, index) => {
