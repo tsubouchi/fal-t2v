@@ -19,7 +19,7 @@ sock = Sock(app)
 app.secret_key = os.environ.get("SESSION_SECRET", "your-secret-key")
 
 # Fal.ai API設定
-FAL_API_KEY = os.environ.get("FAL_API_KEY", "5db59d74-127a-4240-a028-2662d88522a4:f7e522e4afbf3486f03f771446bbfe4b")
+FAL_API_KEY = os.environ.get("FAL_API_KEY")
 FAL_API_URL = "wss://fal.ai/models/fal-ai/wan/v2.1/1.3b/text-to-video/api"
 
 async def generate_video_with_progress(prompt):
@@ -43,39 +43,59 @@ async def generate_video_with_progress(prompt):
     try:
         async with websockets.connect(FAL_API_URL, extra_headers=headers) as websocket:
             await websocket.send(json.dumps(data))
-            logger.debug(f"Sent request with prompt: {prompt}")
-            logger.debug(f"Request data: {json.dumps(data, indent=2)}")
+            logger.debug(f"Request sent to Fal.ai API:")
+            logger.debug(f"Headers: {headers}")
+            logger.debug(f"Data: {json.dumps(data, indent=2)}")
 
             while True:
-                response = await websocket.recv()
-                response_data = json.loads(response)
-                logger.debug(f"Received response: {response_data}")
+                try:
+                    response = await websocket.recv()
+                    response_data = json.loads(response)
+                    logger.debug(f"Received response: {json.dumps(response_data, indent=2)}")
 
-                if "status" in response_data:
-                    if response_data["status"] == "IN_PROGRESS":
-                        yield {
-                            "status": "progress",
-                            "logs": response_data.get("logs", [])
-                        }
-                    elif response_data["status"] == "COMPLETED":
-                        yield {
-                            "status": "completed",
-                            "video_url": response_data.get("data", {}).get("url"),
-                            "request_id": response_data.get("requestId")
-                        }
-                        break
-                    elif response_data["status"] == "FAILED":
-                        yield {
-                            "status": "error",
-                            "error": response_data.get("error", "Unknown error occurred")
-                        }
-                        break
+                    if "status" in response_data:
+                        if response_data["status"] == "IN_PROGRESS":
+                            yield {
+                                "status": "progress",
+                                "logs": response_data.get("logs", [])
+                            }
+                        elif response_data["status"] == "COMPLETED":
+                            if "data" in response_data and "url" in response_data["data"]:
+                                yield {
+                                    "status": "completed",
+                                    "video_url": response_data["data"]["url"],
+                                    "request_id": response_data.get("requestId")
+                                }
+                                break
+                            else:
+                                raise ValueError("Completed response missing video URL")
+                        elif response_data["status"] == "FAILED":
+                            error_message = response_data.get("error", "Unknown error occurred")
+                            logger.error(f"API request failed: {error_message}")
+                            yield {
+                                "status": "error",
+                                "error": error_message
+                            }
+                            break
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse API response: {e}")
+                    yield {
+                        "status": "error",
+                        "error": "Invalid response format from API"
+                    }
+                    break
 
-    except Exception as e:
-        logger.error(f"Video generation failed: {str(e)}")
+    except websockets.exceptions.ConnectionClosed as e:
+        logger.error(f"WebSocket connection closed unexpectedly: {e}")
         yield {
             "status": "error",
-            "error": str(e)
+            "error": "WebSocket connection closed"
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error during video generation: {str(e)}")
+        yield {
+            "status": "error",
+            "error": f"Error generating video: {str(e)}"
         }
 
 @app.route('/')
@@ -101,6 +121,12 @@ async def generate_ws(ws):
             async for update in generate_video_with_progress(prompt):
                 await ws.send(json.dumps(update))
 
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse WebSocket message: {e}")
+            await ws.send(json.dumps({
+                "status": "error",
+                "error": "無効なリクエスト形式です"
+            }))
         except Exception as e:
             logger.error(f"WebSocket error: {str(e)}")
             await ws.send(json.dumps({
@@ -137,18 +163,20 @@ async def batch_generate():
                             'prompt': prompt,
                             'result': {
                                 'video_url': update["video_url"],
-                                'request_id': update["request_id"]
+                                'request_id': update.get("request_id")
                             },
                             'status': 'success'
                         })
+                        break
                     elif update["status"] == "error":
                         results.append({
                             'prompt': prompt,
                             'error': update["error"],
                             'status': 'error'
                         })
+                        break
 
-                time.sleep(1)  # API制限を考慮して遅延を入れる
+                await asyncio.sleep(1)  # API制限を考慮して遅延を入れる
 
             except Exception as e:
                 logger.error(f"Failed to generate video for prompt '{prompt}': {str(e)}")

@@ -4,46 +4,37 @@ document.addEventListener('DOMContentLoaded', function() {
     const singleResult = document.getElementById('singleResult');
     const batchResult = document.getElementById('batchResult');
 
-    let ws = null;
+    // 単一生成フォームの処理
+    singleGenerationForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
 
-    function connectWebSocket() {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/generate-ws`;
-        ws = new WebSocket(wsUrl);
-
-        ws.onmessage = function(event) {
-            const data = JSON.parse(event.data);
-            updateGenerationProgress(data);
-        };
-
-        ws.onerror = function(error) {
-            console.error('WebSocket error:', error);
-            showError(singleResult.querySelector('#singleVideoContainer'), 'WebSocket接続エラーが発生しました');
-        };
-
-        ws.onclose = function() {
-            setTimeout(connectWebSocket, 1000); // 接続が切れた場合は再接続を試みる
-        };
-    }
-
-    // WebSocket接続を確立
-    connectWebSocket();
-
-    function updateGenerationProgress(data) {
+        const prompt = this.querySelector('#prompt').value;
+        const singleProgress = singleResult.querySelector('.progress');
         const videoContainer = document.getElementById('singleVideoContainer');
-        const progress = singleResult.querySelector('.progress');
 
-        if (data.status === 'progress') {
-            progress.classList.remove('d-none');
-            // ログの表示（オプション）
-            if (data.logs && data.logs.length > 0) {
-                const logDiv = document.createElement('div');
-                logDiv.className = 'alert alert-info mt-2';
-                logDiv.textContent = data.logs[data.logs.length - 1].message;
-                videoContainer.appendChild(logDiv);
+        try {
+            singleProgress.classList.remove('d-none');
+            videoContainer.innerHTML = '';
+
+            // 進捗表示用の要素を作成
+            const progressDiv = document.createElement('div');
+            progressDiv.className = 'alert alert-info mt-2';
+            progressDiv.textContent = '動画を生成中...';
+            videoContainer.appendChild(progressDiv);
+
+            const response = await fetch('/api/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ prompt })
+            });
+
+            if (!response.ok) {
+                throw new Error('動画生成中にエラーが発生しました');
             }
-        } else if (data.status === 'completed') {
-            progress.classList.add('d-none');
+
+            const data = await response.json();
 
             // 動画の表示
             const video = document.createElement('video');
@@ -60,35 +51,10 @@ document.addEventListener('DOMContentLoaded', function() {
             videoContainer.innerHTML = '';
             videoContainer.appendChild(video);
             videoContainer.appendChild(downloadBtn);
-        } else if (data.status === 'error') {
-            progress.classList.add('d-none');
-            showError(videoContainer, data.error);
-        }
-    }
-
-    // 単一生成フォームの処理
-    singleGenerationForm.addEventListener('submit', async function(e) {
-        e.preventDefault();
-
-        const prompt = this.querySelector('#prompt').value;
-        const singleProgress = singleResult.querySelector('.progress');
-        const videoContainer = document.getElementById('singleVideoContainer');
-
-        try {
-            if (!ws || ws.readyState !== WebSocket.OPEN) {
-                throw new Error('WebSocket接続が確立されていません');
-            }
-
-            singleProgress.classList.remove('d-none');
-            videoContainer.innerHTML = '';
-
-            // WebSocketでプロンプトを送信
-            ws.send(JSON.stringify({
-                prompt: prompt
-            }));
 
         } catch (error) {
             showError(videoContainer, error.message);
+        } finally {
             singleProgress.classList.add('d-none');
         }
     });
@@ -96,7 +62,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // バッチ生成フォームの処理
     batchGenerationForm.addEventListener('submit', async function(e) {
         e.preventDefault();
-
         const formData = new FormData(this);
         const batchProgress = batchResult.querySelector('.progress');
         const resultList = document.getElementById('batchResultList');
@@ -105,16 +70,16 @@ document.addEventListener('DOMContentLoaded', function() {
             batchProgress.classList.remove('d-none');
             resultList.innerHTML = '';
 
-            const response = await fetch('/batch', {
+            const response = await fetch('/api/batch', {
                 method: 'POST',
                 body: formData
             });
 
-            const data = await response.json();
-
             if (!response.ok) {
-                throw new Error(data.error || 'エラーが発生しました');
+                throw new Error('バッチ処理中にエラーが発生しました');
             }
+
+            const data = await response.json();
 
             // 結果の表示
             data.results.forEach((result, index) => {
@@ -126,10 +91,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         <h6 class="card-subtitle mb-2 text-muted">プロンプト: ${result.prompt}</h6>
                 `;
 
-                if (result.status === 'success' && result.result && result.result.video_url) {
+                if (result.status === 'success' && result.video_url) {
                     content += `
-                        <video src="${result.result.video_url}" controls class="img-fluid mb-2"></video>
-                        <a href="${result.result.video_url}" class="btn btn-success btn-sm" download="batch-video-${index + 1}.mp4">
+                        <video src="${result.video_url}" controls class="img-fluid mb-2"></video>
+                        <a href="${result.video_url}" class="btn btn-success btn-sm" download="batch-video-${index + 1}.mp4">
                             <i class="fa fa-download"></i> ダウンロード
                         </a>
                     `;
