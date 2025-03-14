@@ -4,32 +4,46 @@ document.addEventListener('DOMContentLoaded', function() {
     const singleResult = document.getElementById('singleResult');
     const batchResult = document.getElementById('batchResult');
 
-    // 単一生成フォームの処理
-    singleGenerationForm.addEventListener('submit', async function(e) {
-        e.preventDefault();
+    let ws = null;
 
-        const formData = new FormData(this);
-        const singleProgress = singleResult.querySelector('.progress');
+    function connectWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/generate-ws`;
+        ws = new WebSocket(wsUrl);
+
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            updateGenerationProgress(data);
+        };
+
+        ws.onerror = function(error) {
+            console.error('WebSocket error:', error);
+            showError(singleResult.querySelector('#singleVideoContainer'), 'WebSocket接続エラーが発生しました');
+        };
+
+        ws.onclose = function() {
+            setTimeout(connectWebSocket, 1000); // 接続が切れた場合は再接続を試みる
+        };
+    }
+
+    // WebSocket接続を確立
+    connectWebSocket();
+
+    function updateGenerationProgress(data) {
         const videoContainer = document.getElementById('singleVideoContainer');
+        const progress = singleResult.querySelector('.progress');
 
-        try {
-            singleProgress.classList.remove('d-none');
-            videoContainer.innerHTML = '';
-
-            const response = await fetch('/generate', {
-                method: 'POST',
-                body: formData
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'エラーが発生しました');
+        if (data.status === 'progress') {
+            progress.classList.remove('d-none');
+            // ログの表示（オプション）
+            if (data.logs && data.logs.length > 0) {
+                const logDiv = document.createElement('div');
+                logDiv.className = 'alert alert-info mt-2';
+                logDiv.textContent = data.logs[data.logs.length - 1].message;
+                videoContainer.appendChild(logDiv);
             }
-
-            if (!data.video_url) {
-                throw new Error('動画URLが取得できませんでした');
-            }
+        } else if (data.status === 'completed') {
+            progress.classList.add('d-none');
 
             // 動画の表示
             const video = document.createElement('video');
@@ -43,12 +57,38 @@ document.addEventListener('DOMContentLoaded', function() {
             downloadBtn.innerHTML = '<i class="fa fa-download"></i> ダウンロード';
             downloadBtn.download = 'generated-video.mp4';
 
+            videoContainer.innerHTML = '';
             videoContainer.appendChild(video);
             videoContainer.appendChild(downloadBtn);
+        } else if (data.status === 'error') {
+            progress.classList.add('d-none');
+            showError(videoContainer, data.error);
+        }
+    }
+
+    // 単一生成フォームの処理
+    singleGenerationForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const prompt = this.querySelector('#prompt').value;
+        const singleProgress = singleResult.querySelector('.progress');
+        const videoContainer = document.getElementById('singleVideoContainer');
+
+        try {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                throw new Error('WebSocket接続が確立されていません');
+            }
+
+            singleProgress.classList.remove('d-none');
+            videoContainer.innerHTML = '';
+
+            // WebSocketでプロンプトを送信
+            ws.send(JSON.stringify({
+                prompt: prompt
+            }));
 
         } catch (error) {
             showError(videoContainer, error.message);
-        } finally {
             singleProgress.classList.add('d-none');
         }
     });
